@@ -1,29 +1,50 @@
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
+
+const UPLOAD_DIR = path.join(process.cwd(), "tmp");
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
+const ALLOWED_EXTENSIONS = ["c", "py", "go", "cpp"];
 
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const dir = path.resolve("codeDir");
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
+  destination: async function (req, file, cb) {
+    try {
+      await fs.promises.mkdir(UPLOAD_DIR, {
+        recursive: true,
+        mode: 0o750,
+      });
+
+      const stats = await fs.promises.stat(UPLOAD_DIR);
+      if (stats.mode & 0o007) {
+        await fs.promises.chmod(UPLOAD_DIR, 0o750);
+      }
+      cb(null, UPLOAD_DIR);
+    } catch (error) {
+      cb(new Error("Failed to setup upload directory"));
     }
-    cb(null, dir);
   },
   filename: function (req, file, cb) {
-    const filename = `${Date.now()}-${file.originalname}`;
+    const randomBytes = crypto.randomBytes(16).toString("hex");
+    const sanitizedOriginalname = path
+      .basename(file.originalname)
+      .replace(/[^a-zA-Z0-9.-]/g, "_");
+    const filename = `${randomBytes}-${sanitizedOriginalname}`;
     cb(null, filename);
   },
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 1024 * 1024 * 50 },
+  limits: { fileSize: MAX_FILE_SIZE, files: 1 },
   fileFilter: function (req, file, cb) {
-    const allowedExtensions = ["c", "py", "go", "cpp", "js"];
-    const fileExtension = file.originalname.split(".").pop();
-    if (!allowedExtensions.includes(fileExtension)) {
-      return cb(new Error("Only .js, .py, .go, and .cpp files are allowed"));
+    const fileExtension = file.originalname.split(".").pop().toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(fileExtension)) {
+      return cb(
+        new Error(
+          `Invalid file type. Allowed types: ${ALLOWED_EXTENSIONS.join(", ")}`
+        )
+      );
     }
     cb(null, true);
   },
