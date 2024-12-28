@@ -1,5 +1,6 @@
 import fs from "fs";
 import { exec } from "child_process";
+import { scheduleFileRemove } from "../utils/multer.js";
 
 export async function receiveFile(req, res) {
   try {
@@ -40,6 +41,8 @@ export async function receiveFile(req, res) {
 
         console.log("Execution Output:", stdout);
         res.status(200).json({ output: stdout });
+
+        scheduleFileRemove(filePath);
       });
     } catch (error) {
       console.log(error);

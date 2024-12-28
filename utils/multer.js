@@ -30,3 +30,17 @@ const upload = multer({
 });
 
 export const uploadFile = upload.single("codeFile");
+
+export const scheduleFileRemove = (filePath, delay = 5 * 60 * 1000) => {
+  setTimeout(() => {
+    if (fs.existsSync(filePath)) {
+      fs.unlink(filePath, (err) => {
+        if (err) {
+          console.error(`Error deleting file ${filePath}:`, err);
+        } else {
+          console.log(`File deleted: ${filePath}`);
+        }
+      });
+    }
+  }, delay);
+};
